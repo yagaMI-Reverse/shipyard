@@ -1,0 +1,13 @@
+﻿=== Self-healing proof ===
+deleted pod    : pod/shipyard-docuchat-api-86bf764475-5kb9t
+recovery time  : 31.7s to Deployment Available + all pods Ready
+probes during  : 250
+failed probes  : 0
+
+--- kubectl wait ---
+replacement ready: 2/2 replicas, victim gone
+
+--- pods after ---
+NAME                                     READY   STATUS    RESTARTS   AGE    IP            NODE               NOMINATED NODE   READINESS GATES
+shipyard-docuchat-api-86bf764475-cvxld   1/1     Running   0          31s    10.244.2.10   shipyard-worker2   <none>           <none>
+shipyard-docuchat-api-86bf764475-vfmsz   1/1     Running   0          106s   10.244.1.9    shipyard-worker    <none>           <none>

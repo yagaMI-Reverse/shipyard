@@ -1,0 +1,92 @@
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap");
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    color-scheme: dark;
+  }
+  * {
+    border-color: theme("colors.line");
+  }
+  html {
+    scroll-behavior: smooth;
+  }
+  body {
+    @apply bg-bg font-sans text-ink antialiased;
+  }
+  ::selection {
+    background: rgba(255, 106, 90, 0.35);
+  }
+  :focus-visible {
+    outline: 2px solid theme("colors.ember.DEFAULT");
+    outline-offset: 2px;
+    border-radius: 6px;
+  }
+}
+
+@layer components {
+  .panel {
+    @apply rounded-2xl border border-line bg-panel shadow-glass-inset backdrop-blur-xl;
+  }
+  .btn {
+    @apply inline-flex cursor-pointer items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition-all duration-200 disabled:pointer-events-none disabled:opacity-50;
+  }
+  .btn-brand {
+    @apply btn text-white hover:shadow-ember active:scale-[0.97];
+    background: linear-gradient(120deg, #ff6a5a, #ffb454 60%, #ff6a5a);
+    background-size: 200% 200%;
+    animation: gradient-x 5s ease infinite;
+  }
+  .btn-ghost {
+    @apply btn border border-line bg-panel text-ink-dim backdrop-blur-xl hover:border-ember/50 hover:text-white;
+  }
+  .input {
+    @apply w-full rounded-xl border border-line bg-black/25 px-4 py-2.5 text-sm text-white backdrop-blur-xl transition-colors duration-200 placeholder:text-ink-faint focus:border-ember/60 focus:outline-none;
+  }
+  .ember-text {
+    background: linear-gradient(100deg, #ff6a5a, #ffb454 70%);
+    background-size: 200% 200%;
+    animation: gradient-x 6s ease infinite;
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+}
+
+/* ambient ember backdrop */
+.embers {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  overflow: hidden;
+  pointer-events: none;
+}
+.embers::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  opacity: 0.28;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='150' height='150'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2'/%3E%3C/filter%3E%3Crect width='150' height='150' filter='url(%23n)' opacity='0.5'/%3E%3C/svg%3E");
+}
+.ember-blob {
+  position: absolute;
+  border-radius: 9999px;
+  filter: blur(105px);
+  opacity: 0.4;
+  animation: ember-drift 26s ease-in-out infinite alternate;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}

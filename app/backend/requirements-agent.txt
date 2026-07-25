@@ -1,0 +1,4 @@
+# Extras for the LangGraph agent demo (agent.py) — kept out of the main
+# requirements so the Render web service stays lean.
+-r requirements.txt
+langgraph==0.2.*

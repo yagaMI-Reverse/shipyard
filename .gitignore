@@ -1,0 +1,31 @@
+# --- Terraform ---
+# State holds the rendered Helm values, including the demo database password,
+# and the kubeconfig carries cluster client certificates. Neither belongs in git.
+.terraform/
+.terraform.lock.hcl
+terraform.tfstate
+terraform.tfstate.*
+crash.log
+crash.*.log
+*.tfvars
+!*.tfvars.example
+kubeconfig
+kubeconfig.*
+
+# --- application ---
+node_modules/
+dist/
+.venv/
+venv/
+__pycache__/
+*.pyc
+.env
+.env.local
+test-results/
+playwright-report/
+
+# --- editors / OS ---
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

@@ -1,0 +1,29 @@
+# Overrides for the local kind cluster (see terraform/ and scripts/).
+#
+# Images are built on the host and side-loaded with `kind load docker-image`,
+# so they carry no registry prefix and must never be pulled.
+
+api:
+  image:
+    repository: shipyard/docuchat-api
+    tag: dev
+    pullPolicy: Never
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 8
+
+web:
+  image:
+    repository: shipyard/docuchat-web
+    tag: dev
+    pullPolicy: Never
+
+postgres:
+  enabled: true
+  persistence:
+    size: 1Gi
+
+ingress:
+  enabled: true
+  host: docuchat.localtest.me

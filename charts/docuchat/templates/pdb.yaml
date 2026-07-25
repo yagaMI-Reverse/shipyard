@@ -1,0 +1,34 @@
+{{- /*
+Disruption budgets apply to *voluntary* disruptions — node drains, cluster
+upgrades, `kubectl drain`. They do not protect against a node crashing, which
+is what topologySpreadConstraints are for.
+*/ -}}
+{{- if .Values.api.podDisruptionBudget.enabled }}
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "docuchat.fullname" . }}-api
+  labels:
+    {{- include "docuchat.labels" . | nindent 4 }}
+    app.kubernetes.io/component: api
+spec:
+  minAvailable: {{ .Values.api.podDisruptionBudget.minAvailable }}
+  selector:
+    matchLabels:
+      {{- include "docuchat.selectorLabels" (dict "ctx" . "component" "api") | nindent 6 }}
+{{- end }}
+{{- if .Values.web.podDisruptionBudget.enabled }}
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "docuchat.fullname" . }}-web
+  labels:
+    {{- include "docuchat.labels" . | nindent 4 }}
+    app.kubernetes.io/component: web
+spec:
+  minAvailable: {{ .Values.web.podDisruptionBudget.minAvailable }}
+  selector:
+    matchLabels:
+      {{- include "docuchat.selectorLabels" (dict "ctx" . "component" "web") | nindent 6 }}
+{{- end }}

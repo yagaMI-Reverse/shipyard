@@ -1,0 +1,17 @@
+DocuChat {{ .Chart.AppVersion }} deployed as release "{{ .Release.Name }}".
+
+{{ if .Values.ingress.enabled -}}
+  UI      http://{{ .Values.ingress.host }}/
+  API     http://{{ .Values.ingress.host }}/api/healthz
+{{- else -}}
+  No Ingress enabled — reach the API with:
+    kubectl port-forward svc/{{ include "docuchat.fullname" . }}-api {{ .Values.api.service.port }}
+{{- end }}
+
+Watch the rollout:
+  kubectl rollout status deploy/{{ include "docuchat.fullname" . }}-api
+  kubectl get pods -l app.kubernetes.io/instance={{ .Release.Name }} -w
+{{ if .Values.api.autoscaling.enabled }}
+Autoscaling is on ({{ .Values.api.autoscaling.minReplicas }}-{{ .Values.api.autoscaling.maxReplicas }} replicas at {{ .Values.api.autoscaling.targetCPUUtilizationPercentage }}% CPU):
+  kubectl get hpa {{ include "docuchat.fullname" . }}-api -w
+{{- end }}

@@ -1,0 +1,18 @@
+﻿=== Zero-downtime rollout proof ===
+started      : 2026-07-25 18:01:30
+probe url    : http://docuchat.localtest.me:8080/api/healthz
+probe every  : 100ms
+new image    : shipyard/docuchat-api:v2
+duration     : 26.2s
+requests     : 212
+HTTP 200     : 212
+failed       : 0
+status codes : 200=212
+
+terraform tail:
+
+api_health_url = "http://docuchat.localtest.me:8080/api/healthz"
+app_url = "http://docuchat.localtest.me:8080/"
+cluster_name = "shipyard"
+kubeconfig_path = "C:/Users/Ilay/test/portfolio/53-shipyard/terraform/kubeconfig"
+kubectl_context = "kind-shipyard"

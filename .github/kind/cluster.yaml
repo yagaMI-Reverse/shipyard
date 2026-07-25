@@ -1,0 +1,18 @@
+# Cluster layout used by the e2e workflow. Mirrors terraform/modules/cluster:
+# a control-plane node labelled ingress-ready that publishes :80, plus one
+# worker so pod anti-affinity and drains still mean something in CI.
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+nodes:
+  - role: control-plane
+    kubeadmConfigPatches:
+      - |
+        kind: InitConfiguration
+        nodeRegistration:
+          kubeletExtraArgs:
+            node-labels: "ingress-ready=true"
+    extraPortMappings:
+      - containerPort: 80
+        hostPort: 80
+        protocol: TCP
+  - role: worker

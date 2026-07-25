@@ -1,0 +1,51 @@
+﻿=== Cluster state after a full ./scripts/up.ps1 run ===
+captured: 2026-07-25
+
+$ kubectl get nodes
+NAME                     STATUS   ROLES           AGE   VERSION   INTERNAL-IP   EXTERNAL-IP   OS-IMAGE                         KERNEL-VERSION                      CONTAINER-RUNTIME
+shipyard-control-plane   Ready    control-plane   29m   v1.35.0   172.19.0.4    <none>        Debian GNU/Linux 12 (bookworm)   6.18.33.2-microsoft-standard-WSL2   containerd://2.2.0
+shipyard-worker          Ready    <none>          29m   v1.35.0   172.19.0.3    <none>        Debian GNU/Linux 12 (bookworm)   6.18.33.2-microsoft-standard-WSL2   containerd://2.2.0
+shipyard-worker2         Ready    <none>          29m   v1.35.0   172.19.0.2    <none>        Debian GNU/Linux 12 (bookworm)   6.18.33.2-microsoft-standard-WSL2   containerd://2.2.0
+
+$ kubectl get pods,svc,ingress,hpa,statefulset,pdb -n docuchat
+NAME                                         READY   STATUS    RESTARTS   AGE
+pod/shipyard-docuchat-api-6847db598c-dwmkd   1/1     Running   0          86s
+pod/shipyard-docuchat-api-6847db598c-vlcpm   1/1     Running   0          94s
+pod/shipyard-docuchat-postgres-0             1/1     Running   0          18m
+pod/shipyard-docuchat-web-76994fb4b4-hcj5s   1/1     Running   0          18m
+pod/shipyard-docuchat-web-76994fb4b4-jtgjg   1/1     Running   0          18m
+
+NAME                                 TYPE        CLUSTER-IP      EXTERNAL-IP   PORT(S)    AGE
+service/shipyard-docuchat-api        ClusterIP   10.96.112.124   <none>        8000/TCP   26m
+service/shipyard-docuchat-postgres   ClusterIP   None            <none>        5432/TCP   26m
+service/shipyard-docuchat-web        ClusterIP   10.96.161.182   <none>        8080/TCP   26m
+
+NAME                                              CLASS   HOSTS                   ADDRESS      PORTS   AGE
+ingress.networking.k8s.io/shipyard-docuchat-api   nginx   docuchat.localtest.me   172.19.0.4   80      26m
+ingress.networking.k8s.io/shipyard-docuchat-web   nginx   docuchat.localtest.me   172.19.0.4   80      26m
+
+NAME                                                        REFERENCE                          TARGETS       MINPODS   MAXPODS   REPLICAS   AGE
+horizontalpodautoscaler.autoscaling/shipyard-docuchat-api   Deployment/shipyard-docuchat-api   cpu: 1%/60%   2         8         2          26m
+
+NAME                                          READY   AGE
+statefulset.apps/shipyard-docuchat-postgres   1/1     26m
+
+NAME                                               MIN AVAILABLE   MAX UNAVAILABLE   ALLOWED DISRUPTIONS   AGE
+poddisruptionbudget.policy/shipyard-docuchat-api   1               N/A               1                     26m
+poddisruptionbudget.policy/shipyard-docuchat-web   1               N/A               1                     26m
+
+$ kubectl get pvc -n docuchat
+NAME                                STATUS   VOLUME                                     CAPACITY   ACCESS MODES   STORAGECLASS   VOLUMEATTRIBUTESCLASS   AGE
+data-shipyard-docuchat-postgres-0   Bound    pvc-2658768d-8992-480e-88ed-5b6ce432561e   1Gi        RWO            standard       <unset>                 26m
+
+$ kubectl top pods -n docuchat
+NAME                                     CPU(cores)   MEMORY(bytes)   
+shipyard-docuchat-api-6847db598c-dwmkd   3m           101Mi           
+shipyard-docuchat-api-6847db598c-vlcpm   3m           107Mi           
+shipyard-docuchat-postgres-0             14m          22Mi            
+shipyard-docuchat-web-76994fb4b4-hcj5s   1m           9Mi             
+shipyard-docuchat-web-76994fb4b4-jtgjg   1m           9Mi             
+
+$ helm list -n docuchat
+NAME    	NAMESPACE	REVISION	UPDATED                              	STATUS  	CHART         	APP VERSION
+shipyard	docuchat 	3       	2026-07-25 18:01:39.1322624 +0500 +05	deployed	docuchat-0.2.0	1.0.0      

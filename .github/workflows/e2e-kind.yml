@@ -1,0 +1,153 @@
+name: e2e-kind
+
+# Spins up a real Kubernetes cluster in the runner, deploys the chart into it,
+# and re-runs the three claims the README makes: the service answers, a rolling
+# update drops nothing, and a deleted pod comes back on its own.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  NS: docuchat
+  RELEASE: shipyard
+  HOST: docuchat.localtest.me
+
+jobs:
+  e2e:
+    name: deploy to kind and verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: azure/setup-helm@v4
+        with:
+          version: v3.16.2
+
+      - name: Create cluster
+        uses: helm/kind-action@v1
+        with:
+          cluster_name: shipyard
+          config: .github/kind/cluster.yaml
+
+      - name: Build images
+        run: |
+          docker build -t shipyard/docuchat-api:ci --build-arg APP_VERSION=ci-${GITHUB_SHA::7} app/backend
+          docker build -t shipyard/docuchat-web:ci --build-arg APP_VERSION=ci-${GITHUB_SHA::7} app/frontend
+
+      - name: Load images into the cluster
+        run: |
+          kind load docker-image shipyard/docuchat-api:ci --name shipyard
+          kind load docker-image shipyard/docuchat-web:ci --name shipyard
+
+      - name: Install cluster add-ons
+        run: |
+          helm repo add ingress-nginx https://kubernetes.github.io/ingress-nginx
+          helm repo add metrics-server https://kubernetes-sigs.github.io/metrics-server/
+          helm repo update
+
+          helm upgrade --install ingress-nginx ingress-nginx/ingress-nginx \
+            --version 4.11.3 --namespace ingress-nginx --create-namespace \
+            --set controller.hostPort.enabled=true \
+            --set controller.service.type=NodePort \
+            --set controller.nodeSelector."ingress-ready"=true \
+            --set controller.publishService.enabled=false \
+            --set-string controller.tolerations[0].key=node-role.kubernetes.io/control-plane \
+            --set-string controller.tolerations[0].operator=Equal \
+            --set-string controller.tolerations[0].effect=NoSchedule \
+            --wait --timeout 10m
+
+          # Without --kubelet-insecure-tls the HPA never gets metrics on kind.
+          helm upgrade --install metrics-server metrics-server/metrics-server \
+            --version 3.12.2 --namespace kube-system \
+            --set 'args[0]=--kubelet-insecure-tls' \
+            --wait --timeout 5m
+
+      - name: Deploy DocuChat
+        run: |
+          helm upgrade --install "$RELEASE" charts/docuchat \
+            --namespace "$NS" --create-namespace \
+            -f charts/docuchat/values-local.yaml \
+            --set api.image.tag=ci --set web.image.tag=ci \
+            --set ingress.host="$HOST" \
+            --wait --timeout 10m
+
+      - name: Cluster state
+        run: |
+          kubectl get pods,svc,ingress,hpa -n "$NS" -o wide
+          kubectl get statefulset -n "$NS"
+
+      - name: Smoke test through the Ingress
+        run: |
+          set -euo pipefail
+          probe() { curl -sS -o /dev/null -w '%{http_code}' -H "Host: $HOST" "http://127.0.0.1$1"; }
+
+          # The controller may accept the Ingress a moment after Helm returns.
+          for i in $(seq 1 30); do
+            [ "$(probe /api/healthz)" = "200" ] && break
+            sleep 2
+          done
+
+          test "$(probe /api/healthz)" = "200"
+          test "$(probe /api/readyz)" = "200"
+          test "$(probe /)" = "200"
+
+          answer=$(curl -sS -H "Host: $HOST" -H 'Content-Type: application/json' \
+            -d '{"message":"how long does shipping take"}' "http://127.0.0.1/api/chat")
+          echo "$answer" | head -5
+          echo "$answer" | grep -q "shipping"
+
+      - name: Rolling update must not drop a request
+        run: |
+          set -uo pipefail
+          ( kubectl rollout restart deploy/${RELEASE}-docuchat-api -n "$NS" >/dev/null
+            kubectl rollout status deploy/${RELEASE}-docuchat-api -n "$NS" --timeout=300s >/dev/null ) &
+          rollout=$!
+
+          total=0; fail=0
+          while kill -0 $rollout 2>/dev/null; do
+            code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 5 \
+              -H "Host: $HOST" "http://127.0.0.1/api/healthz" || echo 000)
+            total=$((total+1))
+            if [ "$code" != "200" ]; then
+              fail=$((fail+1)); echo "non-200 during rollout: $code"
+            fi
+            sleep 0.1
+          done
+          wait $rollout
+
+          echo "requests=$total failed=$fail"
+          test "$fail" -eq 0
+
+      - name: Deleted pod must heal itself
+        run: |
+          set -euo pipefail
+          before=$(kubectl get pods -n "$NS" -l app.kubernetes.io/component=api \
+            --field-selector=status.phase=Running -o name | wc -l)
+          victim=$(kubectl get pods -n "$NS" -l app.kubernetes.io/component=api \
+            -o jsonpath='{.items[0].metadata.name}')
+          echo "deleting $victim (running: $before)"
+
+          start=$(date +%s)
+          kubectl delete pod "$victim" -n "$NS" --wait=false
+          kubectl wait --for=condition=Available deploy/${RELEASE}-docuchat-api \
+            -n "$NS" --timeout=180s
+          kubectl wait --for=condition=Ready pod -n "$NS" \
+            -l app.kubernetes.io/component=api --timeout=180s
+          echo "recovered in $(( $(date +%s) - start ))s"
+
+          after=$(kubectl get pods -n "$NS" -l app.kubernetes.io/component=api \
+            --field-selector=status.phase=Running -o name | wc -l)
+          test "$after" -ge "$before"
+
+      - name: Diagnostics on failure
+        if: failure()
+        run: |
+          kubectl get events -n "$NS" --sort-by=.lastTimestamp | tail -40
+          kubectl describe pods -n "$NS" | tail -120
+          kubectl logs -n "$NS" -l app.kubernetes.io/component=api --tail=120 || true

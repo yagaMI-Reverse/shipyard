@@ -1,0 +1,20 @@
+apiVersion: v2
+name: docuchat
+description: DocuChat (FastAPI RAG API + React SPA) packaged for Kubernetes
+type: application
+
+# Chart version tracks the packaging; appVersion tracks the application image.
+#
+# Bump this on every chart change. Terraform's helm_release diffs the chart
+# *version*, not the contents of a local chart directory: edit a template
+# without bumping and `terraform apply` reports "No changes" while the cluster
+# keeps running the old manifests.
+version: 0.2.0
+appVersion: "1.0.0"
+
+keywords:
+  - rag
+  - fastapi
+  - react
+maintainers:
+  - name: Ilya Shapovalov

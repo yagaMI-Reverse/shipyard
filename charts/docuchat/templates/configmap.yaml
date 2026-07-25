@@ -1,0 +1,26 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "docuchat.fullname" . }}-config
+  labels:
+    {{- include "docuchat.labels" . | nindent 4 }}
+data:
+  {{- range $key, $value := .Values.api.env }}
+  {{ $key }}: {{ $value | quote }}
+  {{- end }}
+{{- if .Values.postgres.enabled }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "docuchat.fullname" . }}-postgres-init
+  labels:
+    {{- include "docuchat.labels" . | nindent 4 }}
+    app.kubernetes.io/component: postgres
+data:
+  # Mounted into /docker-entrypoint-initdb.d — Postgres runs these once, on a
+  # brand-new data directory. The application also creates its own table at
+  # startup, so a restored volume needs no manual migration step.
+  01-schema.sql: |
+{{ .Files.Get "files/01-schema.sql" | indent 4 }}
+{{- end }}

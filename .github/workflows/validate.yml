@@ -1,0 +1,85 @@
+name: validate
+
+# Static gate: every manifest the chart can render must be valid Kubernetes,
+# every Terraform file must be formatted and internally consistent, and both
+# Dockerfiles must pass a linter. Runs on every push and pull request.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  helm:
+    name: helm lint + kubeconform
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: azure/setup-helm@v4
+        with:
+          version: v3.16.2
+
+      - name: helm lint
+        run: |
+          helm lint charts/docuchat
+          helm lint charts/docuchat -f charts/docuchat/values-local.yaml
+
+      - name: Install kubeconform
+        run: |
+          curl -sSLo kubeconform.tar.gz \
+            https://github.com/yannh/kubeconform/releases/download/v0.6.7/kubeconform-linux-amd64.tar.gz
+          tar xf kubeconform.tar.gz kubeconform
+          sudo install kubeconform /usr/local/bin/
+
+      - name: Render and validate manifests
+        # -strict rejects unknown fields (a typo'd "resource" instead of
+        # "resources" would otherwise apply cleanly and silently do nothing).
+        run: |
+          for values in charts/docuchat/values.yaml charts/docuchat/values-local.yaml; do
+            echo "--- $values ---"
+            helm template shipyard charts/docuchat -f "$values" \
+              | kubeconform -strict -summary -kubernetes-version 1.31.0 \
+                  -schema-location default -verbose
+          done
+
+  terraform:
+    name: terraform fmt + validate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.9.8
+          terraform_wrapper: false
+
+      - name: terraform fmt
+        run: terraform fmt -check -recursive terraform/
+
+      - name: terraform validate
+        # -backend=false: validation must not need cluster or state access.
+        run: |
+          cd terraform
+          terraform init -backend=false -input=false
+          terraform validate
+
+  docker:
+    name: hadolint
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        dockerfile:
+          - app/backend/Dockerfile
+          - app/frontend/Dockerfile
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hadolint/hadolint-action@v3.1.0
+        with:
+          dockerfile: ${{ matrix.dockerfile }}
+          # DL3008/DL3018: pinning apt/apk versions inside the base images adds
+          # churn without security value here; both images pin their base tag.
+          ignore: DL3008,DL3018
