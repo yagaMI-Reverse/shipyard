@@ -6,6 +6,8 @@ The application is [DocuChat](https://github.com/yagaMI-Reverse/docuchat) — a 
 
 Nothing here is a slideware claim. Every number below came out of a real run against a real cluster; the raw command output is in [`docs/proofs/`](docs/proofs/).
 
+![Measured results: 212/212 requests served during a rolling update, 2 → 8 → 2 replicas under load with 0 failures across 41,972 requests, a deleted pod replaced in 31.7s, and the whole stack surviving a cold restart](docs/assets/shipyard-results.png)
+
 ---
 
 ## What it does
@@ -43,6 +45,10 @@ flowchart TB
 
     tf -.provisions.-> cluster
 ```
+
+![The deployed app answering a question with its sources cited, served through the cluster Ingress](docs/assets/shipyard-ui.png)
+
+The application answering through the deployed stack — the request in that screenshot crossed the Ingress, hit the SPA pod for the bundle, went back through `/api` to an API pod, and retrieved from the documents on the Postgres volume.
 
 Traffic enters through one Ingress hostname. `/` serves the SPA; `/api/*` is rewritten to `/*` and sent to the API Service. The SPA is built with a same-origin `/api` base, so there is no CORS configuration and no API hostname baked into the bundle — the same image works in any environment.
 
