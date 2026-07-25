@@ -55,7 +55,7 @@ jobs:
             --version 4.11.3 --namespace ingress-nginx --create-namespace \
             --set controller.hostPort.enabled=true \
             --set controller.service.type=NodePort \
-            --set controller.nodeSelector."ingress-ready"=true \
+            --set-string controller.nodeSelector."ingress-ready"=true \
             --set controller.publishService.enabled=false \
             --set-string controller.tolerations[0].key=node-role.kubernetes.io/control-plane \
             --set-string controller.tolerations[0].operator=Equal \
