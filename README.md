@@ -52,17 +52,30 @@ Traffic enters through one Ingress hostname. `/` serves the SPA; `/api/*` is rew
 
 Prerequisites: Docker Desktop, `kind`, `kubectl`, `terraform`, `helm`. On Windows:
 
-```bash
-winget install -e --id Kubernetes.kind --id Hashicorp.Terraform --id Helm.Helm
+```powershell
+# winget installs one package per invocation
+winget install -e --id Kubernetes.kind
+winget install -e --id Hashicorp.Terraform
+winget install -e --id Helm.Helm
+winget install -e --id GrafanaLabs.k6   # only needed for the HPA load proof
+```
+
+`kubectl` ships with Docker Desktop. Restart the terminal afterwards so the new
+PATH entries are picked up.
+
+Windows blocks unsigned `.ps1` files by default (`UnauthorizedAccess: выполнение сценариев отключено в этой системе` / `running scripts is disabled on this system`). Allow them for the current shell only — no admin rights, and it reverts when you close the window:
+
+```powershell
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass -Force
 ```
 
 Then one command:
 
-```bash
+```powershell
 ./scripts/up.ps1
 ```
 
-That builds both images, creates the cluster, side-loads the images, installs the add-ons and the release, and prints the URL. Tear it down with `./scripts/down.ps1`.
+That builds both images, creates the cluster, side-loads the images, installs the add-ons and the release, and prints the URL. Tear it down with `./scripts/down.ps1 -Force`.
 
 | | |
 |---|---|
