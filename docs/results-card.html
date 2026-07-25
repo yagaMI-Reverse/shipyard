@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>ShipYard — measured results</title>
+<style>
+/* Typeset copy of docs/proofs/*.txt for portfolio media. Nothing is computed
+   here — every figure is lifted verbatim from the recorded proof runs. */
+:root {
+  --bg: #0f172a; --surface: #1a2438; --surface2: #212c44; --border: #33405c;
+  --fg: #f8fafc; --muted: #94a3b8; --green: #22c55e; --amber: #f59e0b;
+  --cyan: #38bdf8;
+  --mono: ui-monospace, "Cascadia Mono", Consolas, monospace;
+  --sans: system-ui, "Segoe UI", Roboto, sans-serif;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--fg); font-family: var(--sans); padding: 40px 44px; }
+h1 { margin: 0; font-size: 27px; letter-spacing: -.01em; }
+.sub { color: var(--muted); font-size: 14px; margin-top: 7px; font-family: var(--mono); }
+.pill { display: inline-block; font-family: var(--mono); font-size: 12px; color: var(--muted);
+        border: 1px solid var(--border); border-radius: 999px; padding: 3px 10px; margin-right: 7px; }
+.cols { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; margin-top: 28px; }
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: 11px; padding: 20px 22px; }
+h2 { font-size: 12px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin: 0 0 14px; }
+table { width: 100%; border-collapse: collapse; font-size: 14px; }
+td { padding: 7px 0; border-bottom: 1px solid var(--surface2); vertical-align: baseline; }
+td.k { color: var(--muted); padding-right: 14px; }
+td.v { text-align: right; font-family: var(--mono); font-variant-numeric: tabular-nums; white-space: nowrap; }
+tr.hero td { border-bottom: 1px solid var(--border); }
+tr.hero td.k { color: var(--fg); font-weight: 600; }
+tr.hero td.v { color: var(--green); font-weight: 700; font-size: 19px; }
+.ok { color: var(--green); } .warn { color: var(--amber); } .cy { color: var(--cyan); }
+pre { font-family: var(--mono); font-size: 12.5px; color: var(--muted); background: #131c2e;
+      border: 1px solid var(--border); border-radius: 8px; padding: 13px 15px; margin: 0; overflow: hidden; line-height: 1.55; }
+pre b { color: var(--fg); font-weight: 600; }
+.foot { margin-top: 24px; color: var(--muted); font-size: 13px; line-height: 1.65;
+        border-top: 1px solid var(--border); padding-top: 16px; }
+.foot b { color: var(--fg); font-weight: 600; }
+</style>
+</head>
+<body>
+
+<h1>ShipYard — a Kubernetes deploy that proves itself</h1>
+<div class="sub">DocuChat on Kubernetes + Terraform · every figure lifted verbatim from docs/proofs/*.txt</div>
+<div style="margin-top:14px">
+  <span class="pill">2026-07-25</span>
+  <span class="pill">kind cluster · 3 nodes · v1.35.0</span>
+  <span class="pill">Terraform + Helm</span>
+  <span class="pill">nothing re-applied by hand</span>
+</div>
+
+<div class="cols">
+  <div class="card">
+    <h2>Zero-downtime rollout — deploy v1 → v2 under traffic</h2>
+    <table>
+      <tr class="hero"><td class="k">Requests during the rollout → HTTP 200</td><td class="v">212 → 212</td></tr>
+      <tr><td class="k">Failed requests</td><td class="v ok">0</td></tr>
+      <tr><td class="k">Probe interval / rollout duration</td><td class="v">100 ms / 26.2 s</td></tr>
+      <tr><td class="k">Status codes observed</td><td class="v">200 = 212</td></tr>
+      <tr><td class="k">Guard that makes it work</td><td class="v">maxUnavailable: 0</td></tr>
+    </table>
+  </div>
+
+  <div class="card">
+    <h2>Self-healing — a running pod deleted on purpose</h2>
+    <table>
+      <tr class="hero"><td class="k">Recovery to Available + all pods Ready</td><td class="v">31.7 s</td></tr>
+      <tr><td class="k">Probes sent while it healed</td><td class="v">250</td></tr>
+      <tr><td class="k">Failed probes</td><td class="v ok">0</td></tr>
+      <tr><td class="k">Replicas after</td><td class="v">2 / 2, victim gone</td></tr>
+    </table>
+  </div>
+</div>
+
+<div class="card" style="margin-top:22px">
+  <h2>Autoscaling under real load — k6, 150 virtual users, 4 minutes</h2>
+  <div class="cols" style="margin-top:0;gap:22px">
+    <table>
+      <tr class="hero"><td class="k">Requests served → failed</td><td class="v">41,972 → 0</td></tr>
+      <tr><td class="k">checks_succeeded</td><td class="v ok">100.00%</td></tr>
+      <tr><td class="k">http_req_failed</td><td class="v ok">0.00%</td></tr>
+      <tr><td class="k">Throughput</td><td class="v cy">174.5 req/s</td></tr>
+    </table>
+    <table>
+      <tr class="hero"><td class="k">HPA replicas</td><td class="v">2 → 8 → 2</td></tr>
+      <tr><td class="k">Latency p90 / p95</td><td class="v cy">687 / 691 ms</td></tr>
+      <tr><td class="k">Latency avg / max</td><td class="v">498 / 811 ms</td></tr>
+      <tr><td class="k">Scaled back to minReplicas</td><td class="v ok">reached</td></tr>
+    </table>
+  </div>
+</div>
+
+<div class="card" style="margin-top:22px">
+  <h2>Cold restart — the Docker daemon stopped and started again, nothing re-applied</h2>
+<pre>$ kubectl get pods -n docuchat
+NAME                                     READY   STATUS    RESTARTS      AGE
+shipyard-docuchat-api-6847db598c-dwmkd   1/1     <b>Running</b>   1 (70s ago)   126m
+shipyard-docuchat-api-6847db598c-vlcpm   1/1     <b>Running</b>   1 (70s ago)   126m
+shipyard-docuchat-postgres-0             1/1     <b>Running</b>   1 (70s ago)   143m
+shipyard-docuchat-web-76994fb4b4-hcj5s   1/1     <b>Running</b>   1 (70s ago)   143m
+shipyard-docuchat-web-76994fb4b4-jtgjg   1/1     <b>Running</b>   1 (70s ago)   143m
+
+$ curl .../api/readyz
+{"status":"<b>ready</b>","checks":{"index":true,"database":true}}</pre>
+  <div class="foot" style="margin-top:16px;border:0;padding:0">
+    A document uploaded <b>before</b> the restart is still served after it — it lives on the Postgres PVC,
+    not in a pod's memory. That is the difference between "it runs in Docker" and "it survives the node."
+  </div>
+</div>
+
+<div class="foot">
+  <b>Reproducible, not hand-built:</b> one <span style="font-family:var(--mono)">./scripts/up.ps1</span> brings up a
+  3-node kind cluster, Terraform applies the Helm release, ingress, HPA, probes and the Postgres PVC · rollout guarded by
+  maxUnavailable: 0 with readiness gates · each proof above is a script anyone can re-run from the repo.
+</div>
+
+</body>
+</html>
