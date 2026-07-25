@@ -221,7 +221,19 @@ Three workflows, all in `.github/workflows/`:
 | `release.yml` | main, `v*` tags | builds both images and pushes to GHCR with semver/SHA tags and a GHA layer cache |
 | `e2e-kind.yml` | every push / PR | creates a real kind cluster in the runner, installs the add-ons and the chart, then **re-runs the smoke test, the zero-downtime rollout check and the self-healing check** |
 
+The e2e workflow is the one that matters: the proofs above are not screenshots of a good day on my laptop, they are re-run against a fresh cluster on every push. From the latest run:
+
+```
+Rolling update must not drop a request   requests=123 failed=0
+Deleted pod must heal itself             recovered in 24s: 2/2 ready, victim gone
+```
+
 `kubeconform -strict` is the part worth calling out: it rejects unknown fields, so a typo like `resource:` instead of `resources:` fails the build. Without `-strict` that manifest applies cleanly and silently does nothing.
+
+Two things CI caught that a local run had not:
+
+- `--set controller.nodeSelector."ingress-ready"=true` makes Helm emit a *boolean*, and the API server rejects the Deployment (`cannot unmarshal bool into ... nodeSelector of type string`). `--set-string` fixes it. The Terraform module was already correct — only the workflow was wrong.
+- The first version of the self-healing step used `kubectl wait --for=condition=Ready pod -l app.kubernetes.io/component=api`. That selector also matches the replicas that were *already* Ready, so it returned instantly and the step happily reported "recovered in 1s" without ever observing a replacement. It now polls until the deleted pod is gone **and** `readyReplicas == spec.replicas`. A green check that cannot fail is worse than no check.
 
 The e2e workflow deploys with Helm directly rather than Terraform — Terraform's job is validated separately, and asking a CI runner to build a cluster *and* run a two-stage apply buys minutes of wall clock for no extra signal.
 
