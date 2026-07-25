@@ -30,19 +30,10 @@ $tf = Join-Path $repo "terraform"
 $kubeconfig = Join-Path $tf "kubeconfig"
 $apiImage = "shipyard/docuchat-api:$NewTag"
 
-# docker and kind write progress to stderr. Under $ErrorActionPreference=Stop
-# Windows PowerShell turns any stderr line from a native command into a
-# terminating error, so run them with stderr merged and judge them by exit code.
-function Invoke-Native {
-    param([string]$Exe, [string[]]$Arguments)
-    $prev = $ErrorActionPreference
-    $ErrorActionPreference = "Continue"
-    try {
-        & $Exe @Arguments 2>&1 | ForEach-Object { Write-Host $_ }
-        if ($LASTEXITCODE -ne 0) { throw "$Exe $($Arguments -join ' ') failed with exit code $LASTEXITCODE" }
-    }
-    finally { $ErrorActionPreference = $prev }
-}
+# Invoke-Native lives in _common.ps1: docker, kind and terraform write progress
+# to stderr, which Windows PowerShell treats as a terminating error under
+# $ErrorActionPreference=Stop.
+. (Join-Path $PSScriptRoot "_common.ps1")
 
 Write-Host "=== Building $apiImage ===" -ForegroundColor Cyan
 Invoke-Native docker @('build', '-t', $apiImage, '--build-arg', "APP_VERSION=$NewTag", (Join-Path $repo "app\backend"))
