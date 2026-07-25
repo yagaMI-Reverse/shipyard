@@ -1,0 +1,20 @@
+﻿=== Cold restart proof (unplanned) ===
+The Docker daemon was stopped and started again with the cluster in place —
+the local equivalent of rebooting every node at once. Nothing was re-applied.
+
+$ kubectl get pods -n docuchat
+NAME                                     READY   STATUS    RESTARTS      AGE
+shipyard-docuchat-api-6847db598c-dwmkd   1/1     Running   1 (70s ago)   126m
+shipyard-docuchat-api-6847db598c-vlcpm   1/1     Running   1 (70s ago)   126m
+shipyard-docuchat-postgres-0             1/1     Running   1 (70s ago)   143m
+shipyard-docuchat-web-76994fb4b4-hcj5s   1/1     Running   1 (70s ago)   143m
+shipyard-docuchat-web-76994fb4b4-jtgjg   1/1     Running   1 (70s ago)   143m
+
+$ curl http://docuchat.localtest.me:8080/api/readyz
+{"status":"ready","checks":{"index":true,"database":true},"pod":"shipyard-docuchat-api-6847db598c-vlcpm"}
+
+$ curl http://docuchat.localtest.me:8080/api/docs
+[{"id":"shipping","title":"Shipping Policy","chars":387},{"id":"returns","title":"Return & Refund Policy","chars":442},{"id":"account","title":"Account & Orders FAQ","chars":353},{"id":"1fd2fb96","title":"ShipYard Persistence Check","chars":209}]
+
+'ShipYard Persistence Check' was uploaded before the restart and is still
+there afterwards: it lives on the Postgres PVC, not in a pod's memory.

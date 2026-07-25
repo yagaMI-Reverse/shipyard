@@ -193,6 +193,27 @@ data: {"delta": "pineapple. "}
 
 The document uploaded before the restart still answers afterwards, from a pod that never saw the upload.
 
+### 5. Cold restart (this one was not planned)
+
+Between two working sessions the Docker daemon stopped and came back — the local equivalent of rebooting every node at once. Nothing was re-applied by hand:
+
+```
+$ kubectl get pods -n docuchat
+shipyard-docuchat-api-6847db598c-dwmkd   1/1   Running   1 (51s ago)   126m
+shipyard-docuchat-api-6847db598c-vlcpm   1/1   Running   1 (51s ago)   126m
+shipyard-docuchat-postgres-0             1/1   Running   1 (51s ago)   143m
+shipyard-docuchat-web-76994fb4b4-hcj5s   1/1   Running   1 (51s ago)   143m
+shipyard-docuchat-web-76994fb4b4-jtgjg   1/1   Running   1 (51s ago)   143m
+
+$ curl .../api/readyz
+{"status":"ready","checks":{"index":true,"database":true}}
+
+$ curl .../api/docs
+[... ,{"id":"1fd2fb96","title":"ShipYard Persistence Check","chars":209}]
+```
+
+Every workload restarted once and came back Ready on its own, and the document uploaded hours earlier was still there — it lives on the Postgres PVC, not in a pod. Full output: [`docs/proofs/cold-restart.txt`](docs/proofs/cold-restart.txt)
+
 ---
 
 ## Design decisions worth defending
