@@ -127,23 +127,34 @@ jobs:
       - name: Deleted pod must heal itself
         run: |
           set -euo pipefail
-          before=$(kubectl get pods -n "$NS" -l app.kubernetes.io/component=api \
-            --field-selector=status.phase=Running -o name | wc -l)
+          deploy=${RELEASE}-docuchat-api
           victim=$(kubectl get pods -n "$NS" -l app.kubernetes.io/component=api \
             -o jsonpath='{.items[0].metadata.name}')
-          echo "deleting $victim (running: $before)"
+          desired=$(kubectl get deploy "$deploy" -n "$NS" -o jsonpath='{.spec.replicas}')
+          echo "deleting $victim (desired replicas: $desired)"
 
           start=$(date +%s)
           kubectl delete pod "$victim" -n "$NS" --wait=false
-          kubectl wait --for=condition=Available deploy/${RELEASE}-docuchat-api \
-            -n "$NS" --timeout=180s
-          kubectl wait --for=condition=Ready pod -n "$NS" \
-            -l app.kubernetes.io/component=api --timeout=180s
-          echo "recovered in $(( $(date +%s) - start ))s"
 
-          after=$(kubectl get pods -n "$NS" -l app.kubernetes.io/component=api \
-            --field-selector=status.phase=Running -o name | wc -l)
-          test "$after" -ge "$before"
+          # Poll, rather than `kubectl wait --for=condition=Ready pod -l ...`:
+          # that selector also matches the pods that were already Ready, so it
+          # returns instantly and proves nothing. Recovery means the victim is
+          # gone AND the Deployment is back to its full ready count.
+          deadline=$((start + 180))
+          while [ "$(date +%s)" -lt "$deadline" ]; do
+            gone=$(kubectl get pod "$victim" -n "$NS" --ignore-not-found -o name | wc -l)
+            ready=$(kubectl get deploy "$deploy" -n "$NS" -o jsonpath='{.status.readyReplicas}')
+            desired=$(kubectl get deploy "$deploy" -n "$NS" -o jsonpath='{.spec.replicas}')
+            if [ "$gone" -eq 0 ] && [ -n "$ready" ] && [ "$ready" = "$desired" ]; then
+              echo "recovered in $(( $(date +%s) - start ))s: $ready/$desired ready, victim gone"
+              exit 0
+            fi
+            sleep 1
+          done
+
+          echo "TIMEOUT: victim still present or replicas not restored"
+          kubectl get pods -n "$NS" -l app.kubernetes.io/component=api
+          exit 1
 
       - name: Diagnostics on failure
         if: failure()
